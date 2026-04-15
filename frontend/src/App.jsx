@@ -17,6 +17,16 @@ const formatList = (items, keyName) =>
     .filter(Boolean)
     .join(", ");
 
+const formatActionItem = (item) => {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (typeof item !== "object") return "";
+
+  const action = item.action || item.name || "";
+  const due = item.dueDate ? ` (due: ${item.dueDate})` : "";
+  return `${action}${due}`.trim();
+};
+
 function App() {
   const dispatch = useDispatch();
   const interaction = useSelector((state) => state.interaction);
@@ -161,7 +171,7 @@ function App() {
                 className="w-full rounded-md border border-[#cfd6de] bg-white px-3 py-2 text-[17px] text-[#3c495b] placeholder:text-[#9aa4b2]"
                 rows={3}
                 placeholder="Enter next steps or tasks..."
-                value={formatList(interaction.followUpActions, "action")}
+                value={(interaction.followUpActions || []).map((item) => formatActionItem(item)).filter(Boolean).join(", ")}
                 readOnly
               />
             </div>
@@ -170,7 +180,8 @@ function App() {
               <ul className="pl-0">
                 {(interaction.aiSuggestedFollowUps || []).map((item, idx) => (
                   <li key={`${item?.action || "follow-up"}-${idx}`} className="leading-7">
-                    + {item?.action || JSON.stringify(item)}
+                    + {formatActionItem(item) || JSON.stringify(item)}
+                    {item?.rationale ? ` - ${item.rationale}` : ""}
                   </li>
                 ))}
               </ul>

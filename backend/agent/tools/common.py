@@ -73,10 +73,8 @@ def merge_form_updates(
     merged = dict(context or {})
     normalized = normalize_form_updates(updates or {})
     merged.update({k: v for k, v in normalized.items() if _is_meaningful(v)})
-    if "date" not in merged:
-        merged["date"] = str(date.today())
-    # Business rule: always display chat action creation time on the form,
-    # not times mentioned in the user message body.
+
+    merged["date"] = str(date.today())
     merged["time"] = datetime.now().strftime("%H:%M")
     return merged
 
