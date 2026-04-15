@@ -91,7 +91,9 @@ def merge_form_updates(
     if isinstance(merged.get("followUpActions"), list):
         merged["followUpActions"] = _dedupe_action_items(merged["followUpActions"])
     if isinstance(merged.get("aiSuggestedFollowUps"), list):
-        merged["aiSuggestedFollowUps"] = _dedupe_action_items(merged["aiSuggestedFollowUps"])
+        merged["aiSuggestedFollowUps"] = _dedupe_action_items(
+            merged["aiSuggestedFollowUps"]
+        )
 
     if lock_timestamp:
         merged["date"] = str(date.today())
