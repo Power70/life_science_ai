@@ -57,7 +57,9 @@ async def run(message: str, context: dict, db: AsyncSession | None = None) -> di
         )
         stmt = stmt.where(combined_text.like(f"%{search_term.lower()}%"))
 
-    stmt = stmt.order_by(Interaction.interaction_date.desc(), Interaction.created_at.desc()).limit(10)
+    stmt = stmt.order_by(
+        Interaction.interaction_date.desc(), Interaction.created_at.desc()
+    ).limit(10)
     rows = (await db.execute(stmt)).all()
 
     results: list[dict[str, Any]] = []
@@ -67,7 +69,9 @@ async def run(message: str, context: dict, db: AsyncSession | None = None) -> di
                 "id": str(interaction.id),
                 "hcp": hcp.full_name if hcp else None,
                 "date": interaction.interaction_date.isoformat(),
-                "time": interaction.interaction_time.isoformat() if interaction.interaction_time else None,
+                "time": interaction.interaction_time.isoformat()
+                if interaction.interaction_time
+                else None,
                 "topicsDiscussed": interaction.topics_discussed,
                 "sentiment": interaction.sentiment,
                 "outcomes": interaction.outcomes,

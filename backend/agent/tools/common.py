@@ -23,6 +23,32 @@ KEY_ALIASES = {
 }
 
 
+def _dedupe_action_items(items: list[Any]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for item in items:
+        if isinstance(item, str) and item.strip():
+            entry = {"action": item.strip()}
+        elif isinstance(item, dict):
+            action_text = str(item.get("action") or item.get("name") or "").strip()
+            if not action_text:
+                continue
+            entry = dict(item)
+            entry["action"] = action_text
+        else:
+            continue
+
+        due_date = str(entry.get("dueDate") or "").strip()
+        key = f"{entry.get('action', '').lower()}|{due_date.lower()}"
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(entry)
+
+    return deduped
+
+
 def normalize_form_updates(updates: dict[str, Any]) -> dict[str, Any]:
     normalized: dict[str, Any] = {}
     for raw_key, raw_value in (updates or {}).items():
@@ -34,25 +60,13 @@ def normalize_form_updates(updates: dict[str, Any]) -> dict[str, Any]:
     if isinstance(followups, str) and followups.strip():
         normalized["followUpActions"] = [{"action": followups.strip()}]
     elif isinstance(followups, list):
-        converted = []
-        for item in followups:
-            if isinstance(item, str) and item.strip():
-                converted.append({"action": item.strip()})
-            elif isinstance(item, dict):
-                converted.append(item)
-        normalized["followUpActions"] = converted
+        normalized["followUpActions"] = _dedupe_action_items(followups)
 
     ai_suggested = normalized.get("aiSuggestedFollowUps")
     if isinstance(ai_suggested, str) and ai_suggested.strip():
         normalized["aiSuggestedFollowUps"] = [{"action": ai_suggested.strip()}]
     elif isinstance(ai_suggested, list):
-        converted = []
-        for item in ai_suggested:
-            if isinstance(item, str) and item.strip():
-                converted.append({"action": item.strip()})
-            elif isinstance(item, dict):
-                converted.append(item)
-        normalized["aiSuggestedFollowUps"] = converted
+        normalized["aiSuggestedFollowUps"] = _dedupe_action_items(ai_suggested)
 
     return normalized
 
@@ -73,6 +87,11 @@ def merge_form_updates(
     merged = dict(context or {})
     normalized = normalize_form_updates(updates or {})
     merged.update({k: v for k, v in normalized.items() if _is_meaningful(v)})
+
+    if isinstance(merged.get("followUpActions"), list):
+        merged["followUpActions"] = _dedupe_action_items(merged["followUpActions"])
+    if isinstance(merged.get("aiSuggestedFollowUps"), list):
+        merged["aiSuggestedFollowUps"] = _dedupe_action_items(merged["aiSuggestedFollowUps"])
 
     if lock_timestamp:
         merged["date"] = str(date.today())

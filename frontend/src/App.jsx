@@ -229,7 +229,6 @@ function App() {
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{message.content}</p>
-                  {message.tool_used && <p className="mt-1 text-[13px] text-[#486fd2]">Tool: {message.tool_used}</p>}
                 </div>
               ))}
             </div>

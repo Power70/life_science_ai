@@ -4,7 +4,9 @@ from agent.state import AgentState
 from agent.tools import TOOL_REGISTRY
 from services.groq_client import groq_service
 
-ROUTER_SCHEMA = '{"tools":["one of available tools"],"confidence":"0-1","reason":"string"}'
+ROUTER_SCHEMA = (
+    '{"tools":["one of available tools"],"confidence":"0-1","reason":"string"}'
+)
 TOOLS_LIST = ", ".join(TOOL_REGISTRY.keys())
 PRIMARY_FALLBACK = "log_interaction"
 
@@ -22,17 +24,54 @@ def _normalize_plan(route: dict, message: str) -> list[str]:
             valid_tools.append(tool_name)
 
     message_lower = message.lower()
-    if any(token in message_lower for token in ["correct", "actually", "not today", "yesterday", "change", "update the date"]):
+    if any(
+        token in message_lower
+        for token in [
+            "correct",
+            "actually",
+            "not today",
+            "yesterday",
+            "change",
+            "update the date",
+        ]
+    ):
         if "edit_interaction" not in valid_tools:
             valid_tools.insert(0, "edit_interaction")
-    if any(token in message_lower for token in ["search", "find", "look up", "other times", "last month", "history"]):
+    if any(
+        token in message_lower
+        for token in [
+            "search",
+            "find",
+            "look up",
+            "other times",
+            "last month",
+            "history",
+        ]
+    ):
         if "search_interactions" not in valid_tools:
             valid_tools.append("search_interactions")
-    if any(token in message_lower for token in ["summary", "summarize", "call summary"]):
+    if any(
+        token in message_lower for token in ["summary", "summarize", "call summary"]
+    ):
         if "generate_call_summary" not in valid_tools:
             valid_tools.append("generate_call_summary")
-    if any(token in message_lower for token in ["follow-up", "follow up", "next step", "next steps", "schedule", "revisit", "lunch", "meeting"]):
-        if "schedule_followup_meeting" not in valid_tools and "suggest_follow_up" not in valid_tools:
+    if any(
+        token in message_lower
+        for token in [
+            "follow-up",
+            "follow up",
+            "next step",
+            "next steps",
+            "schedule",
+            "revisit",
+            "lunch",
+            "meeting",
+        ]
+    ):
+        if (
+            "schedule_followup_meeting" not in valid_tools
+            and "suggest_follow_up" not in valid_tools
+        ):
             valid_tools.append("schedule_followup_meeting")
 
     if not valid_tools:
@@ -54,7 +93,10 @@ async def router_node(state: AgentState) -> AgentState:
     )
     route = await groq_service.get_json_output(prompt, ROUTER_SCHEMA)
     planned_tools = _normalize_plan(route, state["message"])
-    state["route"] = {"tools": planned_tools, "reason": route.get("reason", "") if isinstance(route, dict) else ""}
+    state["route"] = {
+        "tools": planned_tools,
+        "reason": route.get("reason", "") if isinstance(route, dict) else "",
+    }
     return state
 
 
@@ -86,7 +128,9 @@ async def tool_executor_node(state: AgentState) -> AgentState:
 
 async def responder_node(state: AgentState) -> AgentState:
     tool_results = state.get("tool_results", [])
-    responses = [result.get("response", "") for result in tool_results if result.get("response")]
+    responses = [
+        result.get("response", "") for result in tool_results if result.get("response")
+    ]
     state["response"] = " ".join(responses) if responses else "Processed your request."
     return state
 
