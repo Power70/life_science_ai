@@ -4,34 +4,48 @@ from langchain_groq import ChatGroq
 
 from app.config import settings
 
-PRIMARY_MODEL = "gemma2-9b-it"
-CONTEXT_MODEL = "llama-3.3-70b-versatile"
-
 
 class GroqService:
     def __init__(self) -> None:
         self.enabled = bool(settings.groq_api_key)
         self.primary = None
         self.context = None
+        self.primary_model_name = settings.groq_primary_model
+        self.context_model_name = settings.groq_context_model
         if self.enabled:
             self.primary = ChatGroq(
-                model_name=PRIMARY_MODEL,
+                model_name=self.primary_model_name,
                 groq_api_key=settings.groq_api_key,
                 temperature=0.2,
                 max_tokens=1024,
             )
             self.context = ChatGroq(
-                model_name=CONTEXT_MODEL,
+                model_name=self.context_model_name,
                 groq_api_key=settings.groq_api_key,
                 temperature=0.3,
                 max_tokens=2048,
             )
 
+    def _build_model(self, model_name: str, use_context_settings: bool) -> ChatGroq:
+        return ChatGroq(
+            model_name=model_name,
+            groq_api_key=settings.groq_api_key,
+            temperature=0.3 if use_context_settings else 0.2,
+            max_tokens=2048 if use_context_settings else 1024,
+        )
+
     async def get_completion(self, prompt: str, use_context_model: bool = False) -> str:
         if not self.enabled:
             return "LLM unavailable in this environment. Configure GROQ_API_KEY in backend/.env."
         model = self.context if use_context_model else self.primary
-        result = await model.ainvoke(prompt)
+        try:
+            result = await model.ainvoke(prompt)
+        except Exception as exc:
+            # Handle model decommissioning gracefully by retrying with the context model.
+            if "model_decommissioned" in str(exc) and not use_context_model and self.context is not None:
+                result = await self.context.ainvoke(prompt)
+            else:
+                raise
         return result.content if isinstance(result.content, str) else str(result.content)
 
     async def get_json_output(self, prompt: str, schema_hint: str, use_context_model: bool = False) -> dict:

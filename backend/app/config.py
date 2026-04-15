@@ -1,14 +1,17 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_env: str = "development"
     log_level: str = "INFO"
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/hcp_crm"
-    groq_api_key: str = ""
-    cors_origins_raw: str = "http://localhost:5173"
+    database_url: str = Field(...)
+    groq_api_key: str = Field(default="")
+    groq_primary_model: str = Field(...)
+    groq_context_model: str = Field(...)
+    cors_origins_raw: str = Field(...)
 
     @property
     def cors_origins(self) -> list[str]:

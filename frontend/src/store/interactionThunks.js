@@ -1,9 +1,10 @@
-import { addMessage, setLoading } from "./chatSlice";
+import { addMessage, setError, setLoading } from "./chatSlice";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 
 export const sendChatMessage = ({ message, context, sessionId }) => async (dispatch) => {
   dispatch(addMessage({ id: crypto.randomUUID(), role: "user", content: message }));
+  dispatch(setError(null));
   dispatch(setLoading(true));
   try {
     const response = await fetch(`${API_URL}/agent/chat`, {
@@ -11,6 +12,10 @@ export const sendChatMessage = ({ message, context, sessionId }) => async (dispa
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: sessionId, message, context }),
     });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || "Chat request failed");
+    }
     const data = await response.json();
     dispatch(
       addMessage({
@@ -21,6 +26,17 @@ export const sendChatMessage = ({ message, context, sessionId }) => async (dispa
       }),
     );
     return { payload: data };
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : "Unexpected error";
+    dispatch(setError(messageText));
+    dispatch(
+      addMessage({
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `I could not process that request: ${messageText}`,
+      }),
+    );
+    return { error: messageText };
   } finally {
     dispatch(setLoading(false));
   }
