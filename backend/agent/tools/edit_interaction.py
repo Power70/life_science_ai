@@ -11,6 +11,6 @@ async def run(message: str, context: dict) -> dict:
     return {
         "tool_used": NAME,
         "tool_result": data,
-        "form_updates": merge_form_updates(context, data),
+        "form_updates": merge_form_updates(context, data, lock_timestamp=False),
         "response": "Applied your requested changes while preserving other existing fields.",
     }

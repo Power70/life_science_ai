@@ -17,8 +17,11 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)):
         "message": payload.message,
         "session_id": payload.session_id,
         "context": payload.context,
+        "db": db,
         "route": {},
         "tool_result": {},
+        "tool_results": [],
+        "executed_tools": [],
         "response": "",
     }
     output = await agent_graph.ainvoke(state)
@@ -27,14 +30,15 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)):
         session_id=payload.session_id,
         role="assistant",
         content=output.get("response", ""),
-        tool_used=result.get("tool_used"),
+        tool_used=", ".join(output.get("executed_tools", [])) or result.get("tool_used"),
         tool_result=result.get("tool_result"),
     )
     db.add(assistant)
     await db.commit()
     return ChatResponse(
         response=output.get("response", ""),
-        tool_used=result.get("tool_used"),
+        tool_used=", ".join(output.get("executed_tools", [])) or result.get("tool_used"),
         tool_result=result.get("tool_result"),
-        form_updates=result.get("form_updates", {}),
+        tool_results=output.get("tool_results", []),
+        form_updates=output.get("route", {}).get("form_updates", result.get("form_updates", {})),
     )

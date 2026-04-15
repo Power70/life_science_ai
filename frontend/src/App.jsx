@@ -27,6 +27,16 @@ const formatActionItem = (item) => {
   return `${action}${due}`.trim();
 };
 
+const cleanSummaryText = (text) => {
+  if (!text || typeof text !== "string") return "";
+
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
 function App() {
   const dispatch = useDispatch();
   const interaction = useSelector((state) => state.interaction);
@@ -185,6 +195,17 @@ function App() {
                   </li>
                 ))}
               </ul>
+            </div>
+
+            <div className="mt-3">
+              <p className="mb-1 text-[22px] font-semibold text-[#3a4a60]">AI Summary</p>
+              <textarea
+                className="w-full rounded-md border border-[#cfd6de] bg-[#fbfcfe] px-3 py-2 text-[17px] text-[#3c495b] placeholder:text-[#9aa4b2]"
+                rows={4}
+                placeholder="Generated call summary will appear here when you ask the AI to summarize the interaction..."
+                value={cleanSummaryText(interaction.aiSummary)}
+                readOnly
+              />
             </div>
             <button className="mt-4 rounded-md bg-[#61738a] px-5 py-2 text-[17px] font-semibold text-white" type="submit">
               Log Interaction

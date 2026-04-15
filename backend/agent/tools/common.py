@@ -68,14 +68,15 @@ def _is_meaningful(value: Any) -> bool:
 
 
 def merge_form_updates(
-    context: dict[str, Any], updates: dict[str, Any]
+    context: dict[str, Any], updates: dict[str, Any], lock_timestamp: bool = False
 ) -> dict[str, Any]:
     merged = dict(context or {})
     normalized = normalize_form_updates(updates or {})
     merged.update({k: v for k, v in normalized.items() if _is_meaningful(v)})
 
-    merged["date"] = str(date.today())
-    merged["time"] = datetime.now().strftime("%H:%M")
+    if lock_timestamp:
+        merged["date"] = str(date.today())
+        merged["time"] = datetime.now().strftime("%H:%M")
     return merged
 
 

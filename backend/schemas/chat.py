@@ -11,4 +11,5 @@ class ChatResponse(BaseModel):
     response: str
     tool_used: str | None = None
     tool_result: dict | None = None
+    tool_results: list[dict] | None = None
     form_updates: dict = Field(default_factory=dict)

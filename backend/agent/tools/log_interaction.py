@@ -11,6 +11,6 @@ async def run(message: str, context: dict) -> dict:
     return {
         "tool_used": NAME,
         "tool_result": data,
-        "form_updates": merge_form_updates(context, data),
+        "form_updates": merge_form_updates(context, data, lock_timestamp=True),
         "response": "Logged interaction details from your message and updated the form.",
     }
