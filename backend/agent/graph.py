@@ -11,11 +11,15 @@ TOOLS_LIST = ", ".join(TOOL_REGISTRY.keys())
 async def router_node(state: AgentState) -> AgentState:
     prompt = (
         f"Pick the best tool for this message. Tools: {TOOLS_LIST}. "
-        "Always choose one tool. Prioritize log_interaction for new notes and edit_interaction for correction requests.\n"
+        "Always choose one tool. Use suggest_follow_up for requests about next steps/recommendations. "
+        "Use edit_interaction for corrections to existing form data. "
+        "Use log_interaction for new interaction notes.\n"
         f"Message: {state['message']}"
     )
     route = await groq_service.get_json_output(prompt, ROUTER_SCHEMA)
-    state["route"] = route if route.get("tool") in TOOL_REGISTRY else {"tool": "log_interaction"}
+    state["route"] = (
+        route if route.get("tool") in TOOL_REGISTRY else {"tool": "log_interaction"}
+    )
     return state
 
 
