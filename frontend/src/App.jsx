@@ -64,7 +64,7 @@ function App() {
                 <select
                   className="h-11 w-full rounded-md border border-[#cfd6de] bg-white px-3 text-[17px] text-[#3c495b]"
                   value={interaction.interactionType || "Meeting"}
-                  onChange={(event) => dispatch(applyFormUpdates({ interactionType: event.target.value }))}
+                  disabled
                 >
                   {interactionTypeOptions.map((option) => (
                     <option key={option} value={option}>
@@ -185,7 +185,9 @@ function App() {
               <p className="text-[17px] text-[#7d8898]">Log interaction details here via chat</p>
             </div>
             <div className="min-h-[280px] space-y-3 p-3 lg:flex-1 lg:overflow-y-auto">
-              <div className="rounded-md border border-[#e0e6ee] bg-white p-3 text-[16px] font-semibold leading-6 text-[#39495e]">{initialMessage}</div>
+              {chat.messages.length === 0 && (
+                <div className="rounded-md border border-[#e0e6ee] bg-white p-3 text-[16px] font-semibold leading-6 text-[#39495e]">{initialMessage}</div>
+              )}
               {chat.error && <p className="mb-2 rounded-md bg-red-50 p-2 text-[15px] text-red-700">{chat.error}</p>}
               {chat.messages.map((message) => (
                 <div
