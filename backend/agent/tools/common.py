@@ -25,7 +25,7 @@ KEY_ALIASES = {
 
 def _dedupe_action_items(items: list[Any]) -> list[dict[str, Any]]:
     deduped: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    seen_index_by_action: dict[str, int] = {}
 
     for item in items:
         if isinstance(item, str) and item.strip():
@@ -39,11 +39,25 @@ def _dedupe_action_items(items: list[Any]) -> list[dict[str, Any]]:
         else:
             continue
 
-        due_date = str(entry.get("dueDate") or "").strip()
-        key = f"{entry.get('action', '').lower()}|{due_date.lower()}"
-        if key in seen:
+        action_key = str(entry.get("action", "")).strip().lower()
+        if not action_key:
             continue
-        seen.add(key)
+
+        if action_key in seen_index_by_action:
+            # Keep one item per action. Prefer a non-empty dueDate/rationale when present.
+            idx = seen_index_by_action[action_key]
+            existing = deduped[idx]
+            existing_due = str(existing.get("dueDate") or "").strip()
+            incoming_due = str(entry.get("dueDate") or "").strip()
+            if not existing_due and incoming_due:
+                existing["dueDate"] = incoming_due
+            existing_rationale = str(existing.get("rationale") or "").strip()
+            incoming_rationale = str(entry.get("rationale") or "").strip()
+            if not existing_rationale and incoming_rationale:
+                existing["rationale"] = incoming_rationale
+            continue
+
+        seen_index_by_action[action_key] = len(deduped)
         deduped.append(entry)
 
     return deduped
