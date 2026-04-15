@@ -10,20 +10,26 @@ CONTEXT_MODEL = "llama-3.3-70b-versatile"
 
 class GroqService:
     def __init__(self) -> None:
-        self.primary = ChatGroq(
-            model_name=PRIMARY_MODEL,
-            groq_api_key=settings.groq_api_key,
-            temperature=0.2,
-            max_tokens=1024,
-        )
-        self.context = ChatGroq(
-            model_name=CONTEXT_MODEL,
-            groq_api_key=settings.groq_api_key,
-            temperature=0.3,
-            max_tokens=2048,
-        )
+        self.enabled = bool(settings.groq_api_key)
+        self.primary = None
+        self.context = None
+        if self.enabled:
+            self.primary = ChatGroq(
+                model_name=PRIMARY_MODEL,
+                groq_api_key=settings.groq_api_key,
+                temperature=0.2,
+                max_tokens=1024,
+            )
+            self.context = ChatGroq(
+                model_name=CONTEXT_MODEL,
+                groq_api_key=settings.groq_api_key,
+                temperature=0.3,
+                max_tokens=2048,
+            )
 
     async def get_completion(self, prompt: str, use_context_model: bool = False) -> str:
+        if not self.enabled:
+            return "LLM unavailable in this environment. Configure GROQ_API_KEY in backend/.env."
         model = self.context if use_context_model else self.primary
         result = await model.ainvoke(prompt)
         return result.content if isinstance(result.content, str) else str(result.content)
