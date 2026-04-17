@@ -24,6 +24,74 @@ def _normalize_plan(route: dict, message: str) -> list[str]:
             valid_tools.append(tool_name)
 
     message_lower = message.lower()
+
+    is_correction_request = any(
+        token in message_lower
+        for token in [
+            "correct",
+            "actually",
+            "not today",
+            "yesterday",
+            "change",
+            "update the date",
+            "edit",
+            "fix",
+        ]
+    )
+    is_search_request = any(
+        token in message_lower
+        for token in [
+            "search",
+            "find",
+            "look up",
+            "other times",
+            "last month",
+            "history",
+        ]
+    )
+    is_summary_request = any(
+        token in message_lower for token in ["summary", "summarize", "call summary"]
+    )
+
+    # Treat plain interaction narratives as log requests even when users do not
+    # explicitly write "log this".
+    is_interaction_narrative = any(
+        token in message_lower
+        for token in [
+            "just finished",
+            "i met",
+            "met with",
+            "had a meeting",
+            "finished a meeting",
+            "discussed",
+            "conversation",
+            "phase",
+            "trial",
+            "dr.",
+            "doctor",
+            "positive",
+            "negative",
+            "neutral",
+        ]
+    )
+
+    # Only schedule follow-ups when the user explicitly asks for next-step scheduling.
+    is_followup_scheduling_request = any(
+        token in message_lower
+        for token in [
+            "follow-up",
+            "follow up",
+            "next step",
+            "next steps",
+            "schedule",
+            "revisit",
+            "set up",
+            "book",
+            "arrange",
+            "remind",
+        ]
+    )
+
     if any(
         token in message_lower
         for token in [
@@ -55,24 +123,23 @@ def _normalize_plan(route: dict, message: str) -> list[str]:
     ):
         if "generate_call_summary" not in valid_tools:
             valid_tools.append("generate_call_summary")
-    if any(
-        token in message_lower
-        for token in [
-            "follow-up",
-            "follow up",
-            "next step",
-            "next steps",
-            "schedule",
-            "revisit",
-            "lunch",
-            "meeting",
-        ]
-    ):
+    if is_followup_scheduling_request:
         if (
             "schedule_followup_meeting" not in valid_tools
             and "suggest_follow_up" not in valid_tools
         ):
             valid_tools.append("schedule_followup_meeting")
+
+    # Ensure narrative notes populate the form via extraction unless the request is
+    # clearly edit/search/summary-oriented.
+    if (
+        is_interaction_narrative
+        and not is_correction_request
+        and not is_search_request
+        and not is_summary_request
+        and "log_interaction" not in valid_tools
+    ):
+        valid_tools.insert(0, "log_interaction")
 
     if not valid_tools:
         valid_tools = [PRIMARY_FALLBACK]
