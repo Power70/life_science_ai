@@ -18,145 +18,78 @@ def _normalize_plan(route: dict, message: str) -> list[str]:
     if not isinstance(planned_tools, list):
         planned_tools = []
 
-    valid_tools = []
+    valid_tools: list[str] = []
     for tool_name in planned_tools:
         if tool_name in TOOL_REGISTRY and tool_name not in valid_tools:
             valid_tools.append(tool_name)
 
     message_lower = message.lower()
 
-    is_correction_request = any(
+    # Keep fallback intent mapping lightweight and generic; rely on model routing
+    # first, then apply broad intent fallback only when parsing/selection fails.
+    has_schedule_intent = any(
         token in message_lower
-        for token in [
-            "correct",
-            "actually",
-            "not today",
-            "yesterday",
-            "change",
-            "update the date",
-            "edit",
-            "fix",
-        ]
+        for token in ["schedule", "set up", "book", "arrange", "follow-up", "follow up"]
     )
-    is_search_request = any(
-        token in message_lower
-        for token in [
-            "search",
-            "find",
-            "look up",
-            "other times",
-            "last month",
-            "history",
-        ]
+    has_search_intent = any(
+        token in message_lower for token in ["search", "find", "look up", "history"]
     )
-    is_summary_request = any(
-        token in message_lower for token in ["summary", "summarize", "call summary"]
+    has_summary_intent = any(
+        token in message_lower for token in ["summary", "summarize", "recap"]
     )
-
-    # Treat plain interaction narratives as log requests even when users do not
-    # explicitly write "log this".
-    is_interaction_narrative = any(
+    has_suggestion_intent = any(
         token in message_lower
-        for token in [
-            "just finished",
-            "i met",
-            "met with",
-            "had a meeting",
-            "finished a meeting",
-            "discussed",
-            "conversation",
-            "phase",
-            "trial",
-            "dr.",
-            "doctor",
-            "positive",
-            "negative",
-            "neutral",
-        ]
+        for token in ["what should i do next", "next step", "next steps", "recommend"]
     )
-
-    # Only schedule follow-ups when the user explicitly asks for next-step scheduling.
-    is_followup_scheduling_request = any(
-        token in message_lower
-        for token in [
-            "follow-up",
-            "follow up",
-            "next step",
-            "next steps",
-            "schedule",
-            "revisit",
-            "set up",
-            "book",
-            "arrange",
-            "remind",
-        ]
-    )
-
-    if any(
-        token in message_lower
-        for token in [
-            "correct",
-            "actually",
-            "not today",
-            "yesterday",
-            "change",
-            "update the date",
-        ]
-    ):
-        if "edit_interaction" not in valid_tools:
-            valid_tools.insert(0, "edit_interaction")
-    if any(
-        token in message_lower
-        for token in [
-            "search",
-            "find",
-            "look up",
-            "other times",
-            "last month",
-            "history",
-        ]
-    ):
-        if "search_interactions" not in valid_tools:
-            valid_tools.append("search_interactions")
-    if any(
-        token in message_lower for token in ["summary", "summarize", "call summary"]
-    ):
-        if "generate_call_summary" not in valid_tools:
-            valid_tools.append("generate_call_summary")
-    if is_followup_scheduling_request:
-        if (
-            "schedule_followup_meeting" not in valid_tools
-            and "suggest_follow_up" not in valid_tools
-        ):
-            valid_tools.append("schedule_followup_meeting")
-
-    # Ensure narrative notes populate the form via extraction unless the request is
-    # clearly edit/search/summary-oriented.
-    if (
-        is_interaction_narrative
-        and not is_correction_request
-        and not is_search_request
-        and not is_summary_request
-        and "log_interaction" not in valid_tools
-    ):
-        valid_tools.insert(0, "log_interaction")
 
     if not valid_tools:
-        valid_tools = [PRIMARY_FALLBACK]
+        if has_schedule_intent:
+            valid_tools = ["schedule_followup_meeting"]
+        elif has_search_intent:
+            valid_tools = ["search_interactions"]
+        elif has_summary_intent:
+            valid_tools = ["generate_call_summary"]
+        elif has_suggestion_intent:
+            valid_tools = ["suggest_follow_up"]
+        else:
+            valid_tools = [PRIMARY_FALLBACK]
 
-    return valid_tools[:3]
+    # Composite requests often ask for both recommendation and immediate scheduling.
+    if (
+        has_suggestion_intent
+        and has_schedule_intent
+        and "suggest_follow_up" not in valid_tools
+    ):
+        valid_tools.insert(0, "suggest_follow_up")
+
+    # Keep scheduler before suggestion when user explicitly asks to schedule now.
+    if has_schedule_intent and "schedule_followup_meeting" in valid_tools:
+        valid_tools = [
+            "schedule_followup_meeting",
+            *[tool for tool in valid_tools if tool != "schedule_followup_meeting"],
+        ]
+
+    deduped_tools: list[str] = []
+    for tool_name in valid_tools:
+        if tool_name not in deduped_tools:
+            deduped_tools.append(tool_name)
+
+    return deduped_tools[:3]
 
 
 async def router_node(state: AgentState) -> AgentState:
     prompt = (
-        f"Pick the best tool or tools for this message. Tools: {TOOLS_LIST}. "
-        "Return an ordered list of up to 3 tools. "
-        "Use edit_interaction for corrections to existing form data. "
-        "Use search_interactions for search/history requests. "
-        "Use generate_call_summary for summary requests. "
-        "Use schedule_followup_meeting or suggest_follow_up for next-step requests. "
-        "Use log_interaction for new interaction notes and extraction-heavy messages.\n"
-        f"Message: {state['message']}"
+        f"You are a routing planner for a pharma CRM AI assistant. Available tools: {TOOLS_LIST}. "
+        "Choose the best ordered tools for the user request. "
+        "Return STRICT JSON object only with keys: tools (array of tool names), confidence (0-1), reason (short string). "
+        "Rules: "
+        "(1) Prefer log_interaction for narrative interaction notes and field extraction. "
+        "(2) Use edit_interaction only when user asks to modify existing form data. "
+        "(3) Use search_interactions for retrieval/history questions. "
+        "(4) Use suggest_follow_up for recommendation/what-next questions. "
+        "(5) Use schedule_followup_meeting for explicit scheduling/task creation requests. "
+        "(6) For compound requests, include multiple tools in execution order, max 3 tools. "
+        f" Message: {state['message']}"
     )
     route = await groq_service.get_json_output(prompt, ROUTER_SCHEMA)
     planned_tools = _normalize_plan(route, state["message"])

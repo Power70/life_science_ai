@@ -35,9 +35,13 @@ async def main() -> None:
     args = parse_args()
 
     if not args.yes:
-        answer = input(
-            "This will permanently delete all data from application tables. Continue? (yes/no): "
-        ).strip().lower()
+        answer = (
+            input(
+                "This will permanently delete all data from application tables. Continue? (yes/no): "
+            )
+            .strip()
+            .lower()
+        )
         if answer not in {"yes", "y"}:
             print("Aborted. No data was deleted.")
             return
